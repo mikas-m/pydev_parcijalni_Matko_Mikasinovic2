@@ -6,14 +6,13 @@ from sqlmodel import SQLModel, Field, create_engine, Session, Relationship, sele
 from datetime import date
 from requests.models import HTTPError
 
-
 class Task(SQLModel, table=True):
-        id: int=Field(default=None, primary_key=True)
-        name: str
-        date: str
-        priority: str
+    id: int = Field(default=None, primary_key=True)
+    name: str
+    date: str
+    priority: str
 
-    
+
 def add_task(engine: str) -> str:
     while True:
         name = input("Unesi naziv zadatka: ")
@@ -29,7 +28,7 @@ def add_task(engine: str) -> str:
 
 
 
-def show_tasks(engine: str) -> str:
+def show_tasks(engine: str) -> list:
     while True:
         user_choice_of_sort = input("Želiš li sortirati po [1] datumu dospijeća ili [2] prioritetu? ")
         if user_choice_of_sort == "1":
@@ -45,44 +44,33 @@ def show_tasks(engine: str) -> str:
 
 
 def change_task(engine: str) -> str:
+
     show_sorted_task(engine, Task.id)
+
     while True:
-        id_task_to_change = input("ID zadatka kojega želiš promijeniti ")
-
+        id_to_change = check_id_in_table(engine)
         new_name = input("Koji je novi naziv zadatka? ")
-        new_date = input("Koji je novi datum dovršavanja zadatka? ")
-        new_priority = input("Koji je novi prioritet zadatka? ")
-
-        with Session(engine) as session:
-            select_task = select(Task).where(Task.id == id_task_to_change)
-            task_to_change = session.exec(select_task).first()
-
-            task_to_change.name = new_name
-            task_to_change.date = new_date
-            task_to_change.priority = new_priority
-
-            session.commit()
-
-            if input("Želiš li promijeniti još neki zadatak? da/ne ") != "da":
-                os.system('cls' if os.name == 'nt' else 'clear')
-                break
+        new_date = validate_date()
+        new_priority = validate_priority()
+        change_task_parameters(engine, id_to_change, new_name, new_date, new_priority)
+        
+        if input("Želiš li promijeniti još neki zadatak? da/ne ") != "da":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            break
 
 
 
 def delete_task(engine: str) -> str:
     show_sorted_task(engine, Task.id)
-
     while True:
-        id_task_to_delete = input("ID zadatka kojega želiš izbrisati? ")
+        id_task_to_delete = check_id_in_table(engine)
 
-        with Session(engine) as session:
-            select_task = select(Task).where(Task.id == id_task_to_delete)
-            task_to_delete = session.exec(select_task).first()
-            work_with_session(engine, "delete", task_to_delete)
+        task_to_delete = work_with_session(engine, "select_first", id_task_to_delete)
+        work_with_session(engine, "delete", task_to_delete)
 
-        if input("Želiš li izbrisati još neki zadatak? da/ne ") != "da":
-                    os.system('cls' if os.name == 'nt' else 'clear')
-                    break
+        if input("Zadatak obrisan. Želiš li izbrisati još neki zadatak? da/ne ") != "da":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            break
 
 
 
@@ -95,7 +83,6 @@ def synch(engine: str) -> str:
             response.raise_for_status()
 
             datas = response.json()
-            print(f"Zadataka za unijeti -> {len(datas)}")
             for data in datas:
                 name = data["title"]
                 date_for_task = random_date()
@@ -107,47 +94,126 @@ def synch(engine: str) -> str:
             if input("Želiš li unijeti zadatke sa još neke stranice? da/ne ") != "da":
                 os.system('cls' if os.name == 'nt' else 'clear')
                 break
-        except HTTPError as e:
+        except Exception as e:
             print(e)
 
-
-
-
-
-#POMOĆNE FUNKCIJE
+########
 def random_date():
     now = datetime.datetime.now()
     future_dates = [now + datetime.timedelta(days=i) for i in range(1, 36500)]
     random_future_date = random.choice(future_dates)
-    date_for_task = random_future_date.strftime("%Y-%m-%d %H:%M:%S")
+    date_for_task = random_future_date.strftime("%Y-%m-%d")
     return date_for_task
 
+def get_int_input(prompt):
+    while True:
+        try:
+            value = int(input(prompt))
+            return value
+        except ValueError:
+            print("Unos mora biti cijeli broj. Pokušajte ponovno.")
 
-def show_sorted_task(engine, tabe_column):
-    with Session(engine) as session:
-        select_all = select(Task).order_by(tabe_column)
-        tasks = session.exec(select_all).all()
-        for task in tasks:
-            print(f"ID -> {task.id}, Zadatak za napraviti -> {task.name}, Datum za napraviti -> {task.date}, Prioritet -> {task.priority}")
 
+def check_id_in_table(engine):
+    while True:
+        id_task_to_change = get_int_input("ID zadatka kojega želiš promijeniti ")
 
-def work_with_session(engine, to_do, what):
-    with Session(engine) as session:
-        if to_do == "add":
-            session.add(what)
-            session.commit()
-        elif to_do == "delete":
-            session.delete(what)
-            session.commit()
+        if id_task_to_change not in list_ids(engine):
+            print("Nepostojeći ID. Probaj ponovo")
+        else:
+            return id_task_to_change
         
 
 
+def validate_date():
+    while True:
+        new_date = input("Koji je novi datum dovršavanja zadatka? (u formatu YYYY-MM-DD) ")
+        
+        try:
+            now = datetime.datetime.now().date()
+            date = datetime.datetime.strptime(new_date, '%Y-%m-%d').date()
+    
+            if now < date <= now + datetime.timedelta(days=365):
+                return new_date
+            else:
+                print("Nemogući datum. Probaj ponovo.")
+        except ValueError:
+            print("Pogrešan format datuma. Probaj ponovo.")
+
+
+
+def validate_priority():
+    list_priority = ["Nizak", "Srednji", "Visok"]
+    while True:
+        new_priority = input("Koji je novi prioritet zadatka? ")
+        if new_priority.title() not in list_priority:
+            print("Nemoguće. Mora biti Nizak, Srednji ili Visok. ")
+        else:
+            return new_priority
+
+#########
+
+def list_ids(engine):
+    with Session(engine) as session:
+        select_all = select(Task.id)
+        ids = session.exec(select_all).all()
+        return ids
+    
+
+def show_sorted_task(engine, table_column):
+    try:
+        with Session(engine) as session:
+            select_all = select(Task).order_by(table_column)
+            tasks = session.exec(select_all).all()
+            for task in tasks:
+                print(f"ID -> {task.id}, Zadatak za napraviti -> {task.name}, Datum za napraviti -> {task.date}, Prioritet -> {task.priority}")
+    except Exception as e:
+        print(f"Error -> {e}")
+
+
+def work_with_session(engine, to_do, what):
+    try:
+        with Session(engine) as session:
+            if to_do == "add":
+                session.add(what)
+                session.commit()
+            elif to_do == "delete":
+                session.delete(what)
+                session.commit()
+            elif to_do == "select_first":
+                select_task = select(Task).where(Task.id == what)
+                task_to_change = session.exec(select_task).first()
+                return task_to_change
+    except Exception as e:
+        session.rollback()
+        print(f"Error -> {e}")
+
+
+def change_task_parameters(engine, id_to_change, new_name, new_date, new_priority):
+    try:
+        with Session(engine) as session:
+            select_task = select(Task).where(Task.id == id_to_change)
+            task_to_change = session.exec(select_task).first()
+
+            task_to_change.name = new_name
+            task_to_change.date = new_date
+            task_to_change.priority = new_priority
+
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"Error -> {e}")
+
+
+
+#########
 
 def main():
     engine = create_engine("sqlite:///parcijalni2.db")
     SQLModel.metadata.create_all(engine)
 
     while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
         print("\n--- ToDo Aplikacija ---:")
         print("1. Dodaj novi zadatak")
         print("2. Prikaži sve podatke")
@@ -176,5 +242,3 @@ def main():
 if __name__ == "__main__":
 
     main()
-
-
