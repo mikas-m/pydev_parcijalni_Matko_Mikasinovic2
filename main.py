@@ -15,14 +15,14 @@ class Task(SQLModel, table=True):
 
 def add_task(engine: str) -> str:
     while True:
-        name = input("Unesi naziv zadatka: ")
+        name = input("Insert task: ")
         date_for_task = random_date()
-        random_priority = random.choice(["Nizak", "Srednji", "Visok"])
+        random_priority = random.choice(["Low", "Medium", "High"])
 
         task = Task(name=name, date=date_for_task, priority=random_priority)
         work_with_session(engine, "add", task)
 
-        if input("Želiš li unijeti još zadataka? da/ne ") != "da":
+        if input("You wand to add another task? yes/no ") != "yes":
                 os.system('cls' if os.name == 'nt' else 'clear')
                 break
 
@@ -30,14 +30,14 @@ def add_task(engine: str) -> str:
 
 def show_tasks(engine: str) -> list:
     while True:
-        user_choice_of_sort = input("Želiš li sortirati po [1] datumu dospijeća ili [2] prioritetu? ")
+        user_choice_of_sort = input("Do you want to sort by [1] date or [2] priority? ")
         if user_choice_of_sort == "1":
             show_sorted_task(engine, Task.date)
         elif user_choice_of_sort == "2":
             show_sorted_task(engine, Task.priority)
         else:
-            print("Odabrao si broj koji se ne koristi.")
-        if input("Želiš li probati opet? da/ne ") != "da":
+            print("That option does not exist.")
+        if input("Do you want to try again? yes/no ") != "da":
             os.system('cls' if os.name == 'nt' else 'clear')
             break
 
@@ -49,12 +49,12 @@ def change_task(engine: str) -> str:
 
     while True:
         id_to_change = check_id_in_table(engine)
-        new_name = input("Koji je novi naziv zadatka? ")
+        new_name = input("What is the new name of the task? ")
         new_date = validate_date()
         new_priority = validate_priority()
         change_task_parameters(engine, id_to_change, new_name, new_date, new_priority)
         
-        if input("Želiš li promijeniti još neki zadatak? da/ne ") != "da":
+        if input("Do you want to change another task? ") != "yes":
             os.system('cls' if os.name == 'nt' else 'clear')
             break
 
@@ -68,7 +68,7 @@ def delete_task(engine: str) -> str:
         task_to_delete = work_with_session(engine, "select_first", id_task_to_delete)
         work_with_session(engine, "delete", task_to_delete)
 
-        if input("Zadatak obrisan. Želiš li izbrisati još neki zadatak? da/ne ") != "da":
+        if input("Task deleted. Do you want to delete another one? yes/no ") != "yes":
             os.system('cls' if os.name == 'nt' else 'clear')
             break
 
@@ -76,7 +76,7 @@ def delete_task(engine: str) -> str:
 
 def synch(engine: str) -> str:
     while True:
-        URL = input("Unesi URL - ")
+        URL = input("Insert URL - ")
 
         try:
             response = requests.get(URL)
@@ -86,12 +86,12 @@ def synch(engine: str) -> str:
             for data in datas:
                 name = data["title"]
                 date_for_task = random_date()
-                random_priority = random.choice(["Nizak", "Srednji", "Visok"])
+                random_priority = random.choice(["Low", "Medium", "High"])
                 
                 task = Task(name=name, date=date_for_task, priority=random_priority)
                 work_with_session(engine, "add", task)
                 
-            if input("Želiš li unijeti zadatke sa još neke stranice? da/ne ") != "da":
+            if input("Do you want to add tasks from another site? yes/no ") != "yes":
                 os.system('cls' if os.name == 'nt' else 'clear')
                 break
         except Exception as e:
@@ -111,15 +111,15 @@ def get_int_input(prompt):
             value = int(input(prompt))
             return value
         except ValueError:
-            print("Unos mora biti cijeli broj. Pokušajte ponovno.")
+            print("Input has to be integer. Try again.")
 
 
 def check_id_in_table(engine):
     while True:
-        id_task_to_change = get_int_input("ID zadatka kojega želiš promijeniti ")
+        id_task_to_change = get_int_input("ID of the task to change ")
 
         if id_task_to_change not in list_ids(engine):
-            print("Nepostojeći ID. Probaj ponovo")
+            print("ID unknown. Try again.")
         else:
             return id_task_to_change
         
@@ -127,7 +127,7 @@ def check_id_in_table(engine):
 
 def validate_date():
     while True:
-        new_date = input("Koji je novi datum dovršavanja zadatka? (u formatu YYYY-MM-DD) ")
+        new_date = input("What is the new deadline? (format it as YYYY-MM-DD) ")
         
         try:
             now = datetime.datetime.now().date()
@@ -136,18 +136,18 @@ def validate_date():
             if now < date <= now + datetime.timedelta(days=365):
                 return new_date
             else:
-                print("Nemogući datum. Probaj ponovo.")
+                print("Date unknown. Try again.")
         except ValueError:
-            print("Pogrešan format datuma. Probaj ponovo.")
+            print("Wrong date format. Try again.")
 
 
 
 def validate_priority():
-    list_priority = ["Nizak", "Srednji", "Visok"]
+    list_priority = ["Low", "Medium", "High"]
     while True:
-        new_priority = input("Koji je novi prioritet zadatka? ")
+        new_priority = input("What is the new task priority? ")
         if new_priority.title() not in list_priority:
-            print("Nemoguće. Mora biti Nizak, Srednji ili Visok. ")
+            print("It has to be Low, Medium or High. ")
         else:
             return new_priority
 
@@ -166,7 +166,7 @@ def show_sorted_task(engine, table_column):
             select_all = select(Task).order_by(table_column)
             tasks = session.exec(select_all).all()
             for task in tasks:
-                print(f"ID -> {task.id}, Zadatak za napraviti -> {task.name}, Datum za napraviti -> {task.date}, Prioritet -> {task.priority}")
+                print(f"ID -> {task.id}, Task -> {task.name}, Deadline -> {task.date}, Priority -> {task.priority}")
     except Exception as e:
         print(f"Error -> {e}")
 
@@ -214,14 +214,14 @@ def main():
 
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
-        print("\n--- ToDo Aplikacija ---:")
-        print("1. Dodaj novi zadatak")
-        print("2. Prikaži sve podatke")
-        print("3. Uredi zadatak")
-        print("4. Obriši zadatak")
-        print("5. Sinkroniziraj zadatke s Interneta")
-        print("6. Izlaz")
-        choice = input("Odaberite opciju: ")
+        print("\n--- ToDo App ---:")
+        print("1. Add new task")
+        print("2. Show all tasks")
+        print("3. Change the task")
+        print("4. Delete the task")
+        print("5. Synchronize tasks from the website")
+        print("6. Exit")
+        choice = input("Choose: ")
 
         if choice == "1":
             add_task(engine)
@@ -236,7 +236,7 @@ def main():
         elif choice == "6":
             break
         else:
-            print("Krivi izbor. Pokušajte ponovno.")
+            print("Try again.")
 
 
 if __name__ == "__main__":
