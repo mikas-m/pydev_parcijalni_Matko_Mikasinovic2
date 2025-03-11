@@ -1,1 +1,1 @@
-# pydev_parcijalni_Matko_Mikasinovic2
+Task to practice interaction with SQLModel.
